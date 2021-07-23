@@ -7,6 +7,31 @@ from ..tree import (
     BalanceError, find_balanced_edge_cuts_contraction
 )
 
+def recom_frack(
+    partition, districts, pop_col, epsilon, node_repeats=1, method=bipartition_tree
+):
+
+    subgraph = partition.graph.subgraph(
+        partition.parts[districts[0]] | partition.parts[districts[1]]
+    )
+
+    # Aim to split the population roughly equally between the two new districts
+    # being created
+    revised_pop_target = (partition["population"][districts[0]] + \
+        partition["population"][districts[1]]) / 2
+
+    flips = recursive_tree_part(
+        subgraph,
+        districts,
+        pop_col=pop_col,
+        pop_target=revised_pop_target,
+        epsilon=epsilon,
+        node_repeats=node_repeats,
+        method=method
+    )
+
+    return partition.flip(flips)
+
 def recom_pop(
     partition, pop_col, epsilon, node_repeats=1, method=bipartition_tree
 ):
