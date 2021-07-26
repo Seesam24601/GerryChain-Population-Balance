@@ -109,12 +109,7 @@ class MarkovChain_xtended_fracking:
         old_bdrylength = len(self.state["cut_edges"])
         new_le_oldlength = new_bdrylength <= old_bdrylength * (1 + self.boundary_margin)
 
-        return (self.merged_splits and new_le_oldlength and new_le_oldwins)
-
-    def county_splits(self, proposed_next_state):
-        
-        self.new_fracks, self.merged_splits, self.splits = fracking_merge(self.state,
-            self.d1, self.d2)
+        return (new_le_oldlength and new_le_oldwins)
 
     def __next__(self):
 
@@ -129,7 +124,8 @@ class MarkovChain_xtended_fracking:
 
             proposed_next_state = self.proposal(self.state, (self.d1, self.d2))
 
-            self.county_splits(proposed_next_state)
+            self.new_fracks, self.merged_splits, self.splits = fracking_merge(proposed_next_state,
+                self.d1, self.d2)
 
             # Erase the parent of the parent, to avoid memory leak
             self.state.parent = None
@@ -137,10 +133,11 @@ class MarkovChain_xtended_fracking:
 
             if self.is_valid(proposed_next_state) and self.accept(proposed_next_state):
 
-                if self.new_fracks < self.old_fracks:
+                if (self.new_fracks < self.old_fracks and self.merged_splits <= 1
+                    and self.plan_criteria(proposed_next_state)):
                     self.good = 1
                     self.old_fracks = self.new_fracks
-                self.state = proposed_next_state
+                    self.state = proposed_next_state
                    
                 self.counter += 1
                 return self

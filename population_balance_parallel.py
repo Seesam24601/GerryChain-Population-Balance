@@ -12,7 +12,7 @@ Program by Charlie Murphy
 from gerrychain import (GeographicPartition, Partition, Graph,
     MarkovChain_xtended_pop_balance,proposals, updaters, constraints, accept,
     Election)
-from gerrychain.proposals import recom_pop
+from gerrychain.proposals import recom_merge
 from functools import partial
 import pandas
 import geopandas
@@ -46,7 +46,7 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
     my_constraints = [contiguous_parts, compactness_bound]
 
     # Create a Proposal
-    proposal = partial(recom_pop, pop_col = popkey, epsilon = poptol, 
+    proposal = partial(recom_merge, pop_col = popkey, epsilon = poptol, 
         node_repeats = 2)
 
     # Run Markov Chain

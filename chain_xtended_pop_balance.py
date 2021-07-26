@@ -12,14 +12,8 @@ Program by Charlie Murphy based on code by Dinos Gonatas
 from gerrychain.constraints import Validator, deviation_from_ideal
 from gerrychain import updaters
 from calc_fracwins_comp import calc_fracwins_comp
-
-# Population Deviation
-def pop_deviation(partition):
-    deviation = deviation_from_ideal(partition)
-    key_max = max(deviation.keys(), key = (lambda k: deviation[k]))
-    key_min = min(deviation.keys(), key = (lambda k: deviation[k]))
-    popdev = abs(deviation[key_max] + abs(deviation[key_min]))
-    return popdev
+from fracking import fracking_merge
+from pop_constraint import pop_deviation
 
 # Return County Field
 def get_county_field(partition):
@@ -110,30 +104,6 @@ class MarkovChain_xtended_pop_balance:
 
         return (self.merged_splits and new_le_oldlength and new_le_oldwins)
 
-    def county_splits(self, proposed_next_state):
-        
-        edge = max(self.state["cut_edges"], key=lambda x: 
-        abs(abs(self.state["population"][self.state.assignment[x[1]]]) - 
-        abs(self.state["population"][self.state.assignment[x[0]]])) )
-
-        d1 = self.state.assignment[edge[0]]
-        d2 = self.state.assignment[edge[1]]
-
-        county_field = get_county_field(proposed_next_state)
-        gg = updaters.county_splits(proposed_next_state, county_field)
-        gg_res = gg(proposed_next_state)
-
-        merged_district_count = 0
-        split_count = 0
-        for x in gg_res:
-            split_count += len(gg_res[x].contains) -1
-            if d1 in gg_res[x].contains and d2 in gg_res[x].contains:
-                merged_district_count += 1
-
-        self.splits = split_count
-        self.merged_splits = merged_district_count <= 1
-
-
     def __next__(self):
 
         if self.counter == 0:
@@ -143,7 +113,15 @@ class MarkovChain_xtended_pop_balance:
 
         while self.counter < self.total_steps:
 
-            proposed_next_state = self.proposal(self.state)
+            edge = max(self.state["cut_edges"], key=lambda x: 
+            abs(abs(self.state["population"][self.state.assignment[x[1]]]) - 
+            abs(self.state["population"][self.state.assignment[x[0]]])) )
+
+            self.d1 = self.state.assignment[edge[0]]
+            self.d2 = self.state.assignment[edge[1]]
+
+            proposed_next_state = self.proposal(self.state, (self.d1, self.d2))
+
             self.new_popdev = pop_deviation(proposed_next_state)
 
             # Erase the parent of the parent, to avoid memory leak
@@ -152,7 +130,8 @@ class MarkovChain_xtended_pop_balance:
 
             if self.is_valid(proposed_next_state) and self.accept(proposed_next_state):
 
-                self.county_splits(proposed_next_state)
+                self.new_fracks, self.merged_splits, self.splits = fracking_merge(proposed_next_state,
+                    self.d1, self.d2)
 
                 if (self.plan_criteria(proposed_next_state) and 
                     self.old_popdev > self.new_popdev):

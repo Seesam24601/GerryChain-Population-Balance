@@ -7,7 +7,7 @@ from ..tree import (
     BalanceError, find_balanced_edge_cuts_contraction
 )
 
-def recom_frack(
+def recom_merge(
     partition, districts, pop_col, epsilon, node_repeats=1, method=bipartition_tree
 ):
 
@@ -31,39 +31,6 @@ def recom_frack(
     )
 
     return partition.flip(flips)
-
-def recom_pop(
-    partition, pop_col, epsilon, node_repeats=1, method=bipartition_tree
-):
-
-    # Finds the two bordering districts that have the highest difference in 
-    # population
-    edge = max(partition["cut_edges"], key=lambda x: 
-        abs(abs(partition["population"][partition.assignment[x[1]]]) - 
-        abs(partition["population"][partition.assignment[x[0]]])) )
-
-    parts_to_merge = (partition.assignment[edge[0]], partition.assignment[edge[1]])
-    subgraph = partition.graph.subgraph(
-        partition.parts[parts_to_merge[0]] | partition.parts[parts_to_merge[1]]
-    )
-
-    # Aim to split the population roughly equally between the two new districts
-    # being created
-    revised_pop_target = (partition["population"][parts_to_merge[0]] + \
-        partition["population"][parts_to_merge[1]]) / 2
-
-    flips = recursive_tree_part(
-        subgraph,
-        parts_to_merge,
-        pop_col=pop_col,
-        pop_target=revised_pop_target,
-        epsilon=epsilon,
-        node_repeats=node_repeats,
-        method=method
-    )
-
-    return partition.flip(flips)
-
 
 def recom(
     partition, pop_col, pop_target, epsilon, node_repeats=1, method=bipartition_tree

@@ -3,14 +3,13 @@
 
 '''
 Created 24 July 2020
-Program designed to use gerrychain to improve population balance of a 
-redistricting plan.
+Program designed to use gerrychain to reduce the number of fracked counties.
 
 Program by Charlie Murphy
 '''
 
 from gerrychain import (GeographicPartition, Partition, Graph,
-    MarkovChain_xtended_pop_balance,proposals, updaters, constraints, accept,
+    MarkovChain_xtended_fracking, proposals, updaters, constraints, accept,
     Election)
 from gerrychain.proposals import recom_merge
 from gerrychain.constraints import deviation_from_ideal
@@ -23,12 +22,13 @@ import random
 import os
 from multiprocessing import freeze_support, get_context, Value, Manager
 import time
-from pop_constraint import pop_deviation
+from pop_constraint import pop_constraint
+from fracking import fracking
 
 # Multichian Run
 def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
-    electionvol, boundary_margin, my_apportionment, best_pop, geotag, ns,
-    time_interval):
+    electionvol, boundary_margin, my_apportionment, best, geotag, ns,
+    time_interval, max_pop_deviation):
 
     # Limit the total number of plans to markovchainlength
     count = 0
@@ -51,11 +51,12 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
             initial_partition = GeographicPartition(graph, assignment = my_apportionment,
                 updaters = my_updaters)
 
-            # Compactness and Contiguity Constraints
+            # Constraints
             compactness_bound = constraints.UpperBound(lambda p: len(p["cut_edges"]),
                 2*len(initial_partition["cut_edges"]))
             contiguous_parts = lambda p: constraints.contiguous(p)
-            my_constraints = [compactness_bound, contiguous_parts]
+            my_constraints = [contiguous_parts, compactness_bound,
+                pop_constraint(max_pop_deviation)]
 
             # Create a Proposal
             proposal = partial(recom_merge, pop_col = popkey, epsilon = poptol, 
@@ -64,14 +65,14 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
             first_time = False
 
         # Run Markov Chain
-        chain = MarkovChain_xtended_pop_balance(proposal = proposal,
+        chain = MarkovChain_xtended_fracking(proposal = proposal,
             constraints = my_constraints, accept = accept.always_accept,
             initial_state = initial_partition, total_steps = markovchainlength,
             election_composite = composite, win_margin = win_margin,
             win_volatility = electionvol, boundary_margin = boundary_margin)
 
         # Set the best population deviation to the initial value
-        best_pop_i1 = pop_deviation(initial_partition)
+        best_i1 = fracking(initial_partition)
 
         # Set the next time that the processor will check other's progress.
         # time_interval is in seconds
@@ -84,30 +85,31 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
             if part.counter != 1:
 
                 # Create a file of the plan if the plan reduces population deviation
-                if part.good == 1 and best_pop.value > part.new_popdev:
+                if part.good == 1 and best.value > part.new_fracks:
                     filename = 'redist_data/example_districts/' + state + '_' + \
-                        my_apportionment + '_pop_' + \
-                        str(round((part.new_popdev * 100), 4)) + \
+                        my_apportionment + '_frack_' + str(part.new_fracks) + \
                         '_splits_' + str(part.splits) + \
-                        '_' + str(i1) + '_' + str(part.counter) + '.txt'
+                        '_worker_' + str(i1) +'_run_' + str(part.counter) + '.txt'
                     dl.part_dump(part.state, filename)
 
                     # Set the values to reflect the new lowest population deviation
-                    best_pop_i1 = part.new_popdev
-                    best_pop.value = best_pop_i1
+                    best_i1 = part.new_fracks
+                    best.value = best_i1
                     ns.assignment = part.state.assignment
+                    
+                    if best.value == 0:
+                        return i1 
 
                 # At each time interval, check if another processor has a better
                 # plan. If so, restart the markovchain
                 if time.time() > check_time:
-                    if best_pop.value < best_pop_i1:
+                    if best.value < best_i1:
+                        if best.value == 0:
+                            return i1  
                         initial_partition = GeographicPartition(graph, 
                             assignment = ns.assignment, updaters = my_updaters)
                         break            
-                    check_time = time.time() + time_interval       
-
-                # Note: will throw an error if the assignment column in the 
-                # original file is not assignment
+                    check_time = time.time() + time_interval  
 
     return i1
 
@@ -116,7 +118,7 @@ if __name__ == '__main__':
     freeze_support()
 
     # Load files and combine into a single dataframe
-    exec(open("./input_templates/pop_balance_input.py").read())
+    exec(open("./input_templates/fracking_input.py").read())
     df = geopandas.read_file(my_electiondatafile) 
     exec(open("splice_assignment_fn.py").read())
     graph = graph_PA
@@ -132,9 +134,9 @@ if __name__ == '__main__':
         updaters = my_updaters)
 
     # Value in shared memory
-    start_pop = pop_deviation(initial_partition)
+    start = fracking(initial_partition)
     manager = Manager()
-    best_pop = manager.Value('d', start_pop)
+    best = manager.Value('d', start)
 
     ns = manager.Namespace()
     ns.assignment = initial_partition.assignment
@@ -145,5 +147,5 @@ if __name__ == '__main__':
 
     updated_vals = p.starmap(multi_chain, [(i1, graph, state, popkey, poptol, 
         markovchainlength, win_margin, electionvol, boundary_margin, 
-        my_apportionment, best_pop, geotag, ns, time_interval) 
+        my_apportionment, best, geotag, ns, time_interval, max_pop_deviation) 
         for i1 in range(poolsize)])

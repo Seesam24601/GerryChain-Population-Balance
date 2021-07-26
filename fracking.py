@@ -194,6 +194,3 @@ def get_fracks(partition):
                         if (d1 in edge_districts 
                             and edge_counties == (county, county)):
                             return edge_districts
-                    
-                
-
