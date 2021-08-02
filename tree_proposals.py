@@ -4,7 +4,7 @@ from ..random import random
 from ..tree import (
     recursive_tree_part, bipartition_tree, bipartition_tree_random,
     uniform_spanning_tree, find_balanced_edge_cuts_memoization,
-    BalanceError, find_balanced_edge_cuts_contraction
+    BalanceError, find_balanced_edge_cuts_contraction, recursive_tree_part_recom
 )
 
 def recom_merge(
@@ -25,6 +25,22 @@ def recom_merge(
         districts,
         pop_col=pop_col,
         pop_target=revised_pop_target,
+        epsilon=epsilon,
+        node_repeats=node_repeats,
+        method=method
+    )
+
+    return partition.flip(flips)
+
+def recom_frack(
+    partition, subgraph, districts, pop, pop_col, epsilon, node_repeats=1, method=bipartition_tree
+):
+
+    flips = recursive_tree_part_recom(
+        subgraph,
+        districts,
+        pop_col=pop_col,
+        pop_target=pop,
         epsilon=epsilon,
         node_repeats=node_repeats,
         method=method

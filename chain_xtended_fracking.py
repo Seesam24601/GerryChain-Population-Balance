@@ -12,48 +12,7 @@ Program by Charlie Murphy based on code by Dinos Gonatas
 from gerrychain.constraints import Validator, deviation_from_ideal
 from gerrychain import updaters
 from calc_fracwins_comp import calc_fracwins_comp
-from fracking import fracking_merge, get_fracks, fracking
-
-# Population Deviation
-def pop_deviation(partition):
-    deviation = deviation_from_ideal(partition)
-    key_max = max(deviation.keys(), key = (lambda k: deviation[k]))
-    key_min = min(deviation.keys(), key = (lambda k: deviation[k]))
-    popdev = abs(deviation[key_max] + abs(deviation[key_min]))
-    return popdev
-
-# Return County Field
-def get_county_field(partition):
-
-    fieldlist = partition.graph.nodes[0].keys()   #get LIST OF FIELDS
-    
-    if 'COUNTYFP10' in fieldlist:
-        county_field = 'COUNTYFP10'
-    elif 'CTYNAME' in fieldlist:
-        county_field = 'CTYNAME'
-    elif 'COUNTYFIPS' in fieldlist:
-        county_field = 'COUNTYFIPS'
-    elif 'COUNTYFP' in fieldlist:
-        county_field = 'COUNTYFP'
-    elif 'cnty_nm' in fieldlist:
-        county_field = 'cnty_nm'
-    elif 'county_nam' in fieldlist:
-        county_field = 'county_nam'
-    elif 'FIPS2' in fieldlist:
-        county_field = 'FIPS2'
-    elif 'County' in fieldlist:
-        county_field = 'County'
-    elif 'FIPS' in fieldlist:
-        county_field = 'FIPS'
-    elif 'CNTY_NAME' in fieldlist:
-        county_field = 'CNTY_NAME'
-    elif 'COUNTY' in fieldlist:
-        county_field = 'COUNTY'
-    else:
-        print("no county ID info in shapefile\n")
-        county_field = None
-    
-    return county_field    
+from fracking import fracking, get_fracked_subgraph   
         
 class MarkovChain_xtended_fracking:
 
@@ -120,12 +79,12 @@ class MarkovChain_xtended_fracking:
 
         while self.counter < self.total_steps:
 
-            self.d1, self.d2 = get_fracks(self.state)
+            districts, subgraph, population = get_fracked_subgraph(self.state)
 
-            proposed_next_state = self.proposal(self.state, (self.d1, self.d2))
+            proposed_next_state = self.proposal(self.state, subgraph, districts,
+                population)
 
-            self.new_fracks, self.merged_splits, self.splits = fracking_merge(proposed_next_state,
-                self.d1, self.d2)
+            self.new_fracks = fracking(proposed_next_state)
 
             # Erase the parent of the parent, to avoid memory leak
             self.state.parent = None
@@ -133,8 +92,8 @@ class MarkovChain_xtended_fracking:
 
             if self.is_valid(proposed_next_state) and self.accept(proposed_next_state):
 
-                if (self.new_fracks < self.old_fracks and self.merged_splits <= 1
-                    and self.plan_criteria(proposed_next_state)):
+                if (self.new_fracks < self.old_fracks and
+                    self.plan_criteria(proposed_next_state)):
                     self.good = 1
                     self.old_fracks = self.new_fracks
                     self.state = proposed_next_state

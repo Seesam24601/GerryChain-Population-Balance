@@ -11,7 +11,7 @@ Program by Charlie Murphy
 from gerrychain import (GeographicPartition, Partition, Graph,
     MarkovChain_xtended_fracking, proposals, updaters, constraints, accept,
     Election)
-from gerrychain.proposals import recom_merge
+from gerrychain.proposals import recom_frack
 from gerrychain.constraints import deviation_from_ideal
 from functools import partial
 import pandas
@@ -59,7 +59,7 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
                 pop_constraint(max_pop_deviation)]
 
             # Create a Proposal
-            proposal = partial(recom_merge, pop_col = popkey, epsilon = poptol, 
+            proposal = partial(recom_frack, pop_col = popkey, epsilon = poptol, 
                 node_repeats = 2)
 
             first_time = False
@@ -88,7 +88,6 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
                 if part.good == 1 and best.value > part.new_fracks:
                     filename = 'redist_data/example_districts/' + state + '_' + \
                         my_apportionment + '_frack_' + str(part.new_fracks) + \
-                        '_splits_' + str(part.splits) + \
                         '_worker_' + str(i1) +'_run_' + str(part.counter) + '.txt'
                     dl.part_dump(part.state, filename)
 

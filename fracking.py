@@ -154,13 +154,7 @@ def num_pieces(partition, col_id):
 
 # Return the district number of 2 districts that share a county where at least
 # one of them is fracked
-def get_fracks(partition):
-    
-    # Get the column with the county information in it
-    county_field = get_county_field(partition)
-
-    # Get the pieces splitting by both district and county boundaries
-    locality_intersections = get_intersections(partition, county_field)
+def get_fracks(partition, county_field, locality_intersections):
 
     # Get a dictionary with the districts within each county
     county_splits_dict = county_splits(partition, county_field)(partition) 
@@ -181,7 +175,7 @@ def get_fracks(partition):
 
                     # If there are only two districts return those districts
                     if len(districts) == 2:
-                        return tuple(districts)
+                        return tuple(districts), county
 
                     # Otherwise, find a district that borders frack
                     d1 = partition.assignment[node]
@@ -193,4 +187,46 @@ def get_fracks(partition):
                             partition.graph.nodes[edge[1]][county_field])
                         if (d1 in edge_districts 
                             and edge_counties == (county, county)):
-                            return edge_districts
+                            return edge_districts, county
+
+# Return the nodes of two districts in a county where one of them is fracked and
+# the population of those districts in that county
+def get_fracked_subgraph(partition):
+
+    # Get the column with the county information in it
+    county_field = get_county_field(partition)
+
+    pop_field = 'POP19'
+
+    # Get the pieces splitting by both district and county boundaries
+    locality_intersections = get_intersections(partition, county_field)
+
+    # Get fracked districts and county
+    districts, county = get_fracks(partition, county_field, locality_intersections)
+
+    # Get the subgraph
+    fracked_subgraph = []
+    for locality in locality_intersections:
+        for d in locality_intersections[locality]:
+            subgraph = partition.graph.subgraph(    
+                [x for x in partition.parts[d]
+                    if partition.graph.nodes[x][county_field] == locality]
+            )
+            
+            # Add nodes if they are in the fracked districts and county
+            for node in subgraph:
+                if (partition.assignment[node] in districts and 
+                    subgraph.nodes[node][county_field] == county):
+                    fracked_subgraph.append(subgraph.nodes)
+                break
+
+    # Get population of each district within the fracked county
+    populations = []
+    for subgraph in fracked_subgraph:
+        current_pop = 0
+        for node in subgraph:
+            current_pop += partition.graph.nodes[node][pop_field]
+        populations.append(current_pop)
+
+    return districts, partition.graph.subgraph(
+        fracked_subgraph[0] | fracked_subgraph[1]), populations

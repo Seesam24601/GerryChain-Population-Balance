@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-Created 24 June 2020
+Created 22 July 2020
 Program designed to use gerrychain to reduce the number of fracked counties.
 
 Program by Charlie Murphy
@@ -11,7 +11,7 @@ Program by Charlie Murphy
 from gerrychain import (GeographicPartition, Partition, Graph,
     MarkovChain_xtended_fracking, proposals, updaters, constraints, accept,
     Election)
-from gerrychain.proposals import recom_merge
+from gerrychain.proposals import recom_frack
 from functools import partial
 import pandas
 import geopandas
@@ -44,7 +44,7 @@ my_constraints = [contiguous_parts, compactness_bound,
     pop_constraint(max_pop_deviation)]
 
 # Create a Proposal
-proposal = partial(recom_merge, pop_col = popkey, epsilon = poptol, 
+proposal = partial(recom_frack, pop_col = popkey, epsilon = poptol, 
     node_repeats = 2)
 
 # Run Markov Chain
@@ -60,7 +60,6 @@ for part in chain.with_progress_bar():
         if part.good == 1:
             filename = 'redist_data/example_districts/' + state + '_' + \
                 my_apportionment + '_frack_' + str(part.new_fracks) + \
-                '_splits_' + str(part.splits) + \
                 '_' + str(part.counter) + '.txt'
             dl.part_dump(part.state, filename)
 
