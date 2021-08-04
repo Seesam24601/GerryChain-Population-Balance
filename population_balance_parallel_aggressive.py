@@ -89,12 +89,11 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
                         my_apportionment + '_pop_' + \
                         str(round((part.new_popdev * 100), 4)) + \
                         '_splits_' + str(part.splits) + \
-                        '_' + str(i1) + '_' + str(part.counter) + '.txt'
+                        '_' + str(i1) + '_' + str(count) + '.txt'
                     dl.part_dump(part.state, filename)
 
                     # Set the values to reflect the new lowest population deviation
-                    best_pop_i1 = part.new_popdev
-                    best_pop.value = best_pop_i1
+                    best_pop.value = best_pop_i1 = part.new_popdev
                     ns.assignment = part.state.assignment
 
                 # At each time interval, check if another processor has a better
@@ -106,8 +105,9 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
                         break            
                     check_time = time.time() + time_interval       
 
-                # Note: will throw an error if the assignment column in the 
-                # original file is not assignment
+                # End chain after the correct number of iterations
+                if count > markovchainlength:
+                    break 
 
     return i1
 

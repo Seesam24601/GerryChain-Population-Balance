@@ -2,24 +2,24 @@
 # -*- coding: utf-8 -*-
 
 '''
-Created 24 June 2020
-Program designed to use gerrychain to improve population balance of a 
-redistricting plan.
+Created 4 August 2020
+
+Program designed to use gerrychain to find plans with proporitonal seats.
 
 Program by Charlie Murphy based on code by Dinos Gonatas
 '''
 
 from gerrychain.constraints import Validator, deviation_from_ideal
 from gerrychain import updaters
-from calc_fracwins_comp import calc_fracwins_comp
 from fracking import fracking_merge
-from pop_constraint import pop_deviation
+from proportional_seats_deviation import prop_dev
+import random
         
-class MarkovChain_xtended_pop_balance:
+class MarkovChain_xtended_prop_dev:
 
     def __init__(self, proposal, constraints, accept, initial_state, 
-        total_steps, election_composite, win_margin, win_volatility,
-        boundary_margin):
+        total_steps, election_composite, win_volatility, proportional_seats, 
+        maxsplits):
 
         if callable(constraints):
             is_valid = constraints
@@ -46,12 +46,14 @@ class MarkovChain_xtended_pop_balance:
         self.total_steps = total_steps
         self.initial_state = initial_state
         self.state = initial_state
-        self.old_popdev = pop_deviation(self.state)
-
+        
         self.election_composite = election_composite
-        self.win_margin = win_margin
         self.win_volatility = win_volatility
-        self.boundary_margin = boundary_margin
+        self.maxsplits = maxsplits
+        self.proportional_seats = proportional_seats
+
+        self.old_propdev = prop_dev(self.state, self.election_composite,
+            self.win_volatility, self.proportional_seats)
 
     def __iter__(self):
         self.counter = 0
@@ -59,17 +61,6 @@ class MarkovChain_xtended_pop_balance:
         self.good=1
         self.fit = 1
         return self
-
-    def plan_criteria(self, proposed_next_state):
-        new_wins = calc_fracwins_comp(proposed_next_state, self.election_composite, self.win_volatility)
-        old_wins = calc_fracwins_comp(self.state, self.election_composite, self.win_volatility)
-        new_le_oldwins = new_wins <= old_wins * (1 + self.win_margin)
-        
-        new_bdrylength = len(proposed_next_state["cut_edges"])
-        old_bdrylength = len(self.state["cut_edges"])
-        new_le_oldlength = new_bdrylength <= old_bdrylength * (1 + self.boundary_margin)
-
-        return (self.merged_splits and new_le_oldlength and new_le_oldwins)
 
     def __next__(self):
 
@@ -80,16 +71,15 @@ class MarkovChain_xtended_pop_balance:
 
         while self.counter < self.total_steps:
 
-            edge = max(self.state["cut_edges"], key=lambda x: 
-            abs(abs(self.state["population"][self.state.assignment[x[1]]]) - 
-            abs(self.state["population"][self.state.assignment[x[0]]])) )
+            edge = random.choice(tuple(self.state["cut_edges"]))
 
             self.d1 = self.state.assignment[edge[0]]
             self.d2 = self.state.assignment[edge[1]]
 
             proposed_next_state = self.proposal(self.state, (self.d1, self.d2))
 
-            self.new_popdev = pop_deviation(proposed_next_state)
+            self.new_propdev = prop_dev(proposed_next_state, self.election_composite,
+                self.win_volatility, self.proportional_seats)
 
             # Erase the parent of the parent, to avoid memory leak
             self.state.parent = None
@@ -100,9 +90,8 @@ class MarkovChain_xtended_pop_balance:
                 self.new_fracks, self.merged_splits, self.splits = fracking_merge(proposed_next_state,
                     self.d1, self.d2)
 
-                if (self.plan_criteria(proposed_next_state) and 
-                    self.old_popdev > self.new_popdev):
-                    self.old_popdev = self.new_popdev
+                if self.merged_splits <= 1 and self.new_propdev < self.old_propdev:
+                    self.old_propdev = self.new_propdev
                     self.state = proposed_next_state
                     self.good = 1
                    

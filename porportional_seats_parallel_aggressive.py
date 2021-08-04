@@ -2,35 +2,35 @@
 # -*- coding: utf-8 -*-
 
 '''
-Created 3 August 2020
+Created 4 August 2020
 
-Program designed to either reduce or increase bias in parallel
+Program designed to use gerrychain to find plans with proporitonal seats.
 
 Program by Charlie Murphy
 '''
 
 from gerrychain import (GeographicPartition, Partition, Graph,
-    MarkovChain_xtended_ltpolish_fracs, proposals, updaters, constraints, accept,
+    MarkovChain_xtended_prop_dev, proposals, updaters, constraints, accept,
     Election)
-from gerrychain.proposals import recom
+from gerrychain.proposals import recom_merge
 from gerrychain.constraints import deviation_from_ideal
 from functools import partial
 import pandas
 import geopandas
 from get_electioninfo import get_elections
+import district_list as dl
 import random
 import os
 from multiprocessing import freeze_support, get_context, Value, Manager
 import time
 from pop_constraint import pop_constraint
-import conditional_dump as cd
-from calc_fracwins_comp import calc_fracwins_comp
+from proportional_seats_deviation import prop_dev
+from total_splits import total_splits
 
 # Multichian Run
-def multi_chain(i1, graph, state, popkey, poptol, markovchainlength,
-    electionvol, my_apportionment, best_win, geotag, ns, time_interval, 
-    maxsplits, max_pop_deviation, seat_min, my_electionproxy):
-    hi_wins = 11
+def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, maxsplits,
+    electionvol, my_apportionment, proportional_seats, max_pop_deviation,
+    best_dev, geotag, ns, time_interval):
 
     # Limit the total number of plans to markovchainlength
     count = 0
@@ -61,22 +61,21 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength,
                 pop_constraint(max_pop_deviation)]
 
             # Create a Proposal
-            ideal_population = sum(list(initial_partition["population"].values())) / len(initial_partition)
-            proposal = partial(recom, pop_col = popkey, pop_target = ideal_population,
-                epsilon = poptol, node_repeats = 2)
+            proposal = partial(recom_merge, pop_col = popkey, epsilon = poptol, 
+                node_repeats = 2)
 
             first_time = False
 
         # Run Markov Chain
-        chain = MarkovChain_xtended_ltpolish_fracs(proposal = proposal,
+        chain = MarkovChain_xtended_prop_dev(proposal = proposal,
             constraints = my_constraints, accept = accept.always_accept,
             initial_state = initial_partition, total_steps = markovchainlength,
-            maxsplits = maxsplits, win_volatility = electionvol, 
-            seat_min = seat_min, election_composite = composite)
+            election_composite = composite, win_volatility = electionvol, 
+            proportional_seats = proportional_seats, maxsplits = maxsplits)
 
         # Set the best population deviation to the initial value
-        best_win_i1 = calc_fracwins_comp(initial_partition, composite, 
-            electionvol)
+        best_dev_i1 = prop_dev(initial_partition, composite, electionvol,
+            proportional_seats)
 
         # Set the next time that the processor will check other's progress.
         # time_interval is in seconds
@@ -89,32 +88,30 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength,
             if part.counter != 1:
 
                 # Create a file of the plan if the plan reduces population deviation
-                if part.good == -1:
-                    
-                    rsw_tmp = calc_fracwins_comp(part.state, composite, 
-                        electionvol)
+                if part.good == 1 and best_dev.value > part.new_propdev:
+                    filename = 'redist_data/example_districts/' + state + '_' + \
+                        my_apportionment + '_dev_' + \
+                        str(round((part.new_propdev * 100), 4)) + \
+                        '_splits_' + str(part.splits) + \
+                        '_' + str(i1) + '_' + str(count) + '.txt'
+                    dl.part_dump(part.state, filename)
 
-                    if rsw_tmp < best_win.value:
-                        cd.cd_lt(part.state, hi_wins,rsw_tmp, state,
-                            my_apportionment, my_electionproxy, i1, '_cdgt')
-
-                        # Set the values to reflect the new lowest 
-                        # Democratic fractional seats
-                        best_win.value = best_win_i1 = rsw_tmp
-                        ns.assignment = part.state.assignment
+                    # Set the values to reflect the new lowest population deviation
+                    best_dev.value = best_dev_i1 = part.new_propdev
+                    ns.assignment = part.state.assignment
 
                 # At each time interval, check if another processor has a better
                 # plan. If so, restart the markovchain
                 if time.time() > check_time:
-                    if best_win.value < best_win_i1:
+                    if best_dev.value < best_dev_i1:
                         initial_partition = GeographicPartition(graph, 
                             assignment = ns.assignment, updaters = my_updaters)
                         break            
-                    check_time = time.time() + time_interval   
+                    check_time = time.time() + time_interval       
 
                 # End chain after the correct number of iterations
                 if count > markovchainlength:
-                    break    
+                    break 
 
     return i1
 
@@ -123,7 +120,7 @@ if __name__ == '__main__':
     freeze_support()
 
     # Load files and combine into a single dataframe
-    exec(open("./input_templates/bias_input.py").read())
+    exec(open("./input_templates/prop_dev_input.py").read())
     df = geopandas.read_file(my_electiondatafile) 
     exec(open("splice_assignment_fn.py").read())
     graph = graph_PA
@@ -140,8 +137,8 @@ if __name__ == '__main__':
 
     # Value in shared memory
     manager = Manager()
-    best_win = manager.Value('d', calc_fracwins_comp(initial_partition, 
-        composite, electionvol))
+    best_dev = manager.Value('d', prop_dev(initial_partition, composite,
+        electionvol, proportional_seats))
 
     ns = manager.Namespace()
     ns.assignment = initial_partition.assignment
@@ -151,6 +148,6 @@ if __name__ == '__main__':
     p = ctx.Pool(poolsize)
 
     updated_vals = p.starmap(multi_chain, [(i1, graph, state, popkey, poptol, 
-        markovchainlength, electionvol, my_apportionment, best_win, geotag, ns, 
-        time_interval, maxsplits, max_pop_deviation, seat_min, my_electionproxy) 
+        markovchainlength, maxsplits, electionvol, my_apportionment, 
+        proportional_seats, max_pop_deviation, best_dev, geotag, ns, time_interval) 
         for i1 in range(poolsize)])

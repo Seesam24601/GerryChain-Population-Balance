@@ -56,8 +56,16 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, win_margin,
             # Max Splits
             max_splits = total_splits(initial_partition)
 
+            # Stage
+            if pop_deviation(initial_partition) <= max_pop_deviation:
+                if fracking(initial_partition) == 0:
+                    stage = 2
+                else:
+                    stage = 1
+            else:
+                stage = 0
+
             first_time = False
-            stage = 0
 
         # Constraints
         contiguous_parts = lambda p: constraints.contiguous(p)
