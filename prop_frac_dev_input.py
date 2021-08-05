@@ -22,7 +22,7 @@ markovchainlength = 100000
 poptol = .005
 electionvol = 0.06
 max_pop_deviation = 0.0075
-proportional_seats = 18
+vote_share = 0.4627
 
 # Pool Attributes
 poolsize = 6

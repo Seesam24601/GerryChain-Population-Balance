@@ -10,7 +10,7 @@ Program by Charlie Murphy
 '''
 
 from gerrychain import (GeographicPartition, Partition, Graph,
-    MarkovChain_xtended_prop_dev, proposals, updaters, constraints, accept,
+    MarkovChain_xtended_prop_frac_dev, proposals, updaters, constraints, accept,
     Election)
 from gerrychain.proposals import recom_merge
 from gerrychain.constraints import deviation_from_ideal
@@ -24,12 +24,12 @@ import os
 from multiprocessing import freeze_support, get_context, Value, Manager
 import time
 from pop_constraint import pop_constraint
-from proportional_seats_deviation import prop_dev
+from proportional_seats_deviation import prop_frac_dev
 from total_splits import total_splits
 
 # Multichian Run
-def multi_chain(i1, graph, state, popkey, poptol, markovchainlength,
-    electionvol, my_apportionment, proportional_seats, max_pop_deviation,
+def multi_chain(i1, graph, state, popkey, poptol, markovchainlength, 
+    electionvol, my_apportionment, vote_share, max_pop_deviation,
     best_dev, geotag, ns, time_interval):
 
     # Limit the total number of plans to markovchainlength
@@ -67,15 +67,15 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength,
             first_time = False
 
         # Run Markov Chain
-        chain = MarkovChain_xtended_prop_dev(proposal = proposal,
+        chain = MarkovChain_xtended_prop_frac_dev(proposal = proposal,
             constraints = my_constraints, accept = accept.always_accept,
             initial_state = initial_partition, total_steps = markovchainlength,
             election_composite = composite, win_volatility = electionvol, 
-            proportional_seats = proportional_seats)
+            vote_share = vote_share)
 
         # Set the best population deviation to the initial value
-        best_dev_i1 = prop_dev(initial_partition, composite, electionvol,
-            proportional_seats)
+        best_dev_i1 = prop_frac_dev(initial_partition, composite, electionvol,
+            vote_share)
 
         # Set the next time that the processor will check other's progress.
         # time_interval is in seconds
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     freeze_support()
 
     # Load files and combine into a single dataframe
-    exec(open("./input_templates/prop_dev_input.py").read())
+    exec(open("./input_templates/prop_frac_dev_input.py").read())
     df = geopandas.read_file(my_electiondatafile) 
     exec(open("splice_assignment_fn.py").read())
     graph = graph_PA
@@ -137,8 +137,8 @@ if __name__ == '__main__':
 
     # Value in shared memory
     manager = Manager()
-    best_dev = manager.Value('d', prop_dev(initial_partition, composite,
-        electionvol, proportional_seats))
+    best_dev = manager.Value('d', prop_frac_dev(initial_partition, composite,
+       electionvol, vote_share))
 
     ns = manager.Namespace()
     ns.assignment = initial_partition.assignment
@@ -149,5 +149,5 @@ if __name__ == '__main__':
 
     updated_vals = p.starmap(multi_chain, [(i1, graph, state, popkey, poptol, 
         markovchainlength, electionvol, my_apportionment, 
-        proportional_seats, max_pop_deviation, best_dev, geotag, ns, time_interval) 
+        vote_share, max_pop_deviation, best_dev, geotag, ns, time_interval) 
         for i1 in range(poolsize)])

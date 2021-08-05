@@ -12,13 +12,13 @@ Program by Charlie Murphy based on code by Dinos Gonatas
 from gerrychain.constraints import Validator, deviation_from_ideal
 from gerrychain import updaters
 from fracking import fracking_merge
-from proportional_seats_deviation import prop_dev
+from proportional_seats_deviation import prop_frac_dev
 import random
         
-class MarkovChain_xtended_prop_dev:
+class MarkovChain_xtended_prop_frac_dev:
 
     def __init__(self, proposal, constraints, accept, initial_state, 
-        total_steps, election_composite, win_volatility, proportional_seats):
+        total_steps, election_composite, win_volatility, vote_share):
 
         if callable(constraints):
             is_valid = constraints
@@ -48,10 +48,10 @@ class MarkovChain_xtended_prop_dev:
         
         self.election_composite = election_composite
         self.win_volatility = win_volatility
-        self.proportional_seats = proportional_seats
+        self.vote_share = vote_share
 
-        self.old_propdev = prop_dev(self.state, self.election_composite,
-            self.win_volatility, self.proportional_seats)
+        self.old_propdev = prop_frac_dev(self.state, self.election_composite,
+            self.win_volatility, self.vote_share)
 
     def __iter__(self):
         self.counter = 0
@@ -76,8 +76,8 @@ class MarkovChain_xtended_prop_dev:
 
             proposed_next_state = self.proposal(self.state, (self.d1, self.d2))
 
-            self.new_propdev = prop_dev(proposed_next_state, self.election_composite,
-                self.win_volatility, self.proportional_seats)
+            self.new_propdev = prop_frac_dev(proposed_next_state, self.election_composite,
+                self.win_volatility, self.vote_share)
 
             # Erase the parent of the parent, to avoid memory leak
             self.state.parent = None
