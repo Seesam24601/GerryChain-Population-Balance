@@ -30,7 +30,7 @@ from calc_fracwins_comp import calc_fracwins_comp
 def multi_chain(i1, graph, state, popkey, poptol, markovchainlength,
     electionvol, my_apportionment, best_win, geotag, ns, time_interval, 
     maxsplits, max_pop_deviation, seat_min, my_electionproxy):
-    hi_wins = 11
+    hi_wins = 37
 
     # Limit the total number of plans to markovchainlength
     count = 0
@@ -83,7 +83,6 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength,
         check_time = time.time() + time_interval
 
         # Loop through markovchain
-        print(best_win.value)
         for part in chain:
             count += 1
 
@@ -91,16 +90,11 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength,
 
                 # Create a file of the plan if the plan reduces population deviation
                 if part.good == -1:
-                    
-                    print('LOLA')
 
                     rsw_tmp = calc_fracwins_comp(part.state, composite, 
                         electionvol)
 
-                    print(rsw_tmp)
-
                     if rsw_tmp > best_win.value:
-                        print('YUMUS')
                         cd.cd_lt(part.state, hi_wins, rsw_tmp, state,
                             my_apportionment, my_electionproxy, i1, '_cdgt')
 
@@ -109,7 +103,6 @@ def multi_chain(i1, graph, state, popkey, poptol, markovchainlength,
                         best_win.value = best_win_i1 = rsw_tmp
                         ns.assignment = part.state.assignment
 
-                    print()
 
                 # At each time interval, check if another processor has a better
                 # plan. If so, restart the markovchain

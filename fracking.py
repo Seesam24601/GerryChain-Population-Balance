@@ -46,9 +46,9 @@ def get_county_field(partition):
     
     return county_field
 
-# Return a boolean value on whether or not a possible redistricting plan is 
-# fracked. A redistricting plan is consider fracked if at least one district
-# is discontinuous within a county
+# This function takes in a partition and returns the number of fracks.
+# A district is considered fracked if it has at least two 
+# discontinuous portions within a county.
 def fracking(partition):
 
     # Get column with counties

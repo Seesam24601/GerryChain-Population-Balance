@@ -13,7 +13,6 @@ Program by Charlie Murphy
 from gerrychain.constraints import Validator, deviation_from_ideal
 from gerrychain import updaters
 from fracking import fracking_merge
-from proportional_seats_deviation import prop_dev
 import random
         
 class MarkovChain_xtended_smoothing:

@@ -18,7 +18,6 @@ import pandas
 import geopandas
 from get_electioninfo import get_elections
 import district_list as dl
-import fracking
 
 # Load files and combine into a single dataframe
 exec(open("./input_templates/pop_balance_input.py").read())
