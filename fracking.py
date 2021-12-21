@@ -196,7 +196,7 @@ def get_fracked_subgraph(partition):
     # Get the column with the county information in it
     county_field = get_county_field(partition)
 
-    pop_field = 'POP19'
+    pop_field = 'POP20'
 
     # Get the pieces splitting by both district and county boundaries
     locality_intersections = get_intersections(partition, county_field)
